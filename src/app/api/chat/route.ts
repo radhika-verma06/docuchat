@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getGroq() {
+  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+}
 
 interface Chunk {
   id: number;
@@ -97,6 +99,7 @@ Rules:
 
     const userPrompt = `Context from documents:\n\n${context}\n\n---\n\nQuestion: ${question}\n\nAnswer based on the context above:`;
 
+    const groq = getGroq();
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [

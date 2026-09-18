@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pdf from 'pdf-parse';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PDFParser = require('pdf2json');
 
 function chunkText(text: string, chunkSize: number = 500, overlap: number = 100): string[] {
   const chunks: string[] = [];
@@ -9,7 +11,6 @@ function chunkText(text: string, chunkSize: number = 500, overlap: number = 100)
   for (const sentence of sentences) {
     if ((current + ' ' + sentence).length > chunkSize && current.length > 0) {
       chunks.push(current.trim());
-      // Keep overlap
       const words = current.split(' ');
       const overlapWords = words.slice(-Math.floor(overlap / 5));
       current = overlapWords.join(' ') + ' ' + sentence;
@@ -19,6 +20,37 @@ function chunkText(text: string, chunkSize: number = 500, overlap: number = 100)
   }
   if (current.trim()) chunks.push(current.trim());
   return chunks;
+}
+
+function extractPdfText(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parser = new PDFParser();
+
+    parser.on('pdfParser_dataError', (errData: any) => {
+      reject(new Error(errData.parserError));
+    });
+
+    parser.on('pdfParser_dataReady', (pdfData: any) => {
+      let text = '';
+      if (pdfData.Pages) {
+        for (const page of pdfData.Pages) {
+          if (page.Texts) {
+            for (const line of page.Texts) {
+              if (line.R) {
+                for (const run of line.R) {
+                  text += decodeURIComponent(run.T || '') + ' ';
+                }
+              }
+            }
+            text += '\n';
+          }
+        }
+      }
+      resolve(text);
+    });
+
+    parser.parseBuffer(buffer);
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -34,8 +66,7 @@ export async function POST(request: NextRequest) {
 
     if (fileName.endsWith('.pdf')) {
       const buffer = Buffer.from(await file.arrayBuffer());
-      const data = await pdf(buffer);
-      text = data.text;
+      text = await extractPdfText(buffer);
     } else {
       text = await file.text();
     }
