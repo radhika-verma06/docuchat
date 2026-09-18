@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 
 function getGroq() {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error('GROQ_API_KEY not configured');
+  return new Groq({ apiKey: key });
 }
 
 interface Chunk {
